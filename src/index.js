@@ -4,7 +4,7 @@ import './index.css';
 import Application from './Application';
 
 import Amplify from 'aws-amplify';
-import config from 'src/aws-exports';
+import config from './aws-exports';
 
 // link front-end and aws backend together
 Amplify.configure(config);
