@@ -3,8 +3,10 @@ import NewGrudge from './NewGrudge';
 import Grudges from './Grudges';
 import './Application.css';
 
-import { withAuthenticator } from 'aws-amplify-react';
-import { API } from 'aws-amplify';
+import { API, graphqlOperation } from 'aws-amplify';
+import {
+    CreateGrudge, DeleteGrudge, ListGrudges, SubscribeToNewGrudge, UpdateGrudge
+} from './graphql';
 
 class Application extends Component {
     state = {
@@ -12,24 +14,36 @@ class Application extends Component {
     };
 
     componentDidMount() {
-        API.get('aws-workshopCRUD', '/aws-workshop')
-            .then(res => {
-                this.setState((prevState, state) => ({ ...prevState, grudges: res }));
+        API.graphql(graphqlOperation(SubscribeToNewGrudge))
+            .subscribe({
+                next: response => {
+                    const grudge = response.value.data.onCreateGrudge;
+
+                    this.setState((state, props) => ({ ...state, grudges: [...state.grudges, grudge] }));
+                }
+            });
+
+        API.graphql(graphqlOperation(ListGrudges))
+            .then(({ data: { listGrudges: { items: grudges }}}) => {
+                this.setState((state, props) => ({ ...state, grudges }));
             })
+            .catch(e => console.log(e));
     }
 
     addGrudge = grudge => {
-        API.post('aws-workshopCRUD', '/aws-workshop', { body: grudge })
-            .then(() => this.setState({ grudges: [grudge, ...this.state.grudges] }));
+        API.graphql(graphqlOperation(CreateGrudge, grudge));
     };
 
     removeGrudge = ({ id }) => {
-        API.get('aws-workshopCRUD', `/aws-workshop/object/${id}`)
-            .then(() =>
+        console.log(id)
+        API.graphql(graphqlOperation(DeleteGrudge, { id }))
+            .then((res) => {
+                console.log(res);
                 this.setState({
                     grudges: this.state.grudges.filter(other => other.id !== id),
-                }
-            ));
+                });
+            })
+            .catch(e => console.log(e));
     };
 
     toggle = grudge => {
@@ -38,13 +52,16 @@ class Application extends Component {
             avenged: !grudge.avenged
         };
 
-        API.put('aws-workshopCRUD', '/aws-workshop', { body: updatedGrudge })
-            .then(() => {
-                const othergrudges = this.state.grudges.filter(
+        API.graphql(graphqlOperation(UpdateGrudge, updatedGrudge))
+            .then(({ data }) => {
+                console.log(data);
+                const otherGrudges = this.state.grudges.filter(
                     other => other.id !== grudge.id,
                 );
 
-                this.setState({ grudges: [updatedGrudge, ...othergrudges] });
+                console.log({ grudges: [...otherGrudges, updatedGrudge] });
+
+                this.setState((state, props) => ({ grudges: [...otherGrudges, updatedGrudge] }));
             });
     };
 
@@ -73,4 +90,4 @@ class Application extends Component {
     }
 }
 
-export default withAuthenticator(Application);
+export default Application;
